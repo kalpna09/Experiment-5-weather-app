@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather App</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #74ebd5, #9face6);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .weather-card {
+            background: white;
+            width: 100%;
+            max-width: 420px;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 10px 30px #0002;
+        }
+
+        h1 {
+            color: #334e8a;
+        }
+
+        .search {
+            display: flex;
+            gap: 8px;
+        }
+
+        input {
+            min-width: 0;
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+
+        button {
+            padding: 12px 15px;
+            border: none;
+            border-radius: 8px;
+            background: #334e8a;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:focus-visible,
+        input:focus-visible {
+            outline: 3px solid #f0a500;
+            outline-offset: 3px;
+        }
+
+        #result {
+            margin-top: 25px;
+        }
+
+        .temperature {
+            font-size: 42px;
+            font-weight: bold;
+            color: #334e8a;
+        }
+
+        .details {
+            line-height: 2;
+        }
+
+        #message {
+            color: #b42318;
+        }
+    </style>
+</head>
+
+<body>
+    <main class="weather-card">
+        <h1>Weather App</h1>
+        <p>Check the current weather of any city.</p>
+
+        <form class="search" id="weatherForm">
+            <label for="city" hidden>Enter city name</label>
+            <input id="city" type="text"
+                   placeholder="Enter city name"
+                   required>
+            <button type="submit">Search</button>
+        </form>
+
+        <p id="message" role="status" aria-live="polite"></p>
+        <section id="result" aria-label="Weather information"></section>
+    </main>
+
+    <script>
+        const form = document.getElementById("weatherForm");
+        const cityInput = document.getElementById("city");
+        const result = document.getElementById("result");
+        const message = document.getElementById("message");
+
+        form.addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            const city = cityInput.value.trim();
+
+            if (!city) {
+                message.textContent = "Please enter a city name.";
+                return;
+            }
+
+            message.textContent = "Loading weather...";
+            result.replaceChildren();
+
+            try {
+                const geoResponse = await fetch(
+                    "https://geocoding-api.open-meteo.com/v1/search?name=" +
+                    encodeURIComponent(city) + "&count=1&language=en&format=json"
+                );
+
+                if (!geoResponse.ok) {
+                    throw new Error("Unable to search for this city.");
+                }
+
+                const geoData = await geoResponse.json();
+
+                if (!geoData.results || geoData.results.length === 0) {
+                    throw new Error("City not found. Please try another name.");
+                }
+
+                const place = geoData.results[0];
+
+                const weatherResponse = await fetch(
+                    "https://api.open-meteo.com/v1/forecast?latitude=" +
+                    place.latitude + "&longitude=" + place.longitude +
+                    "&current=temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&timezone=auto"
+                );
+
+                if (!weatherResponse.ok) {
+                    throw new Error("Unable to fetch weather data.");
+                }
+
+                const weatherData = await weatherResponse.json();
+                const weather = weatherData.current;
+
+                const conditions = {
+                    0: "Clear sky",
+                    1: "Mainly clear",
+                    2: "Partly cloudy",
+                    3: "Overcast",
+                    45: "Foggy",
+                    48: "Rime fog",
+                    51: "Light drizzle",
+                    53: "Moderate drizzle",
+                    55: "Dense drizzle",
+                    61: "Slight rain",
+                    63: "Moderate rain",
+                    65: "Heavy rain",
+                    71: "Slight snowfall",
+                    73: "Moderate snowfall",
+                    75: "Heavy snowfall",
+                    80: "Rain showers",
+                    81: "Moderate rain showers",
+                    82: "Heavy rain showers",
+                    95: "Thunderstorm"
+                };
+
+                const title = document.createElement("h2");
+                title.textContent = place.name +
+                    (place.country ? ", " + place.country : "");
+
+                const condition = document.createElement("p");
+                condition.textContent =
+                    conditions[weather.weather_code] || "Weather update";
+
+                const temperature = document.createElement("p");
+                temperature.className = "temperature";
+                temperature.textContent = weather.temperature_2m + "°C";
+
+                const details = document.createElement("div");
+                details.className = "details";
+                details.textContent =
+                    "Feels like: " + weather.apparent_temperature + "°C\n" +
+                    "Humidity: " + weather.relative_humidity_2m + "%\n" +
+                    "Wind speed: " + weather.wind_speed_10m + " km/h\n" +
+                    "Precipitation: " + weather.precipitation + " mm";
+
+                details.style.whiteSpace = "pre-line";
+
+                result.append(title, condition, temperature, details);
+                message.textContent = "Weather updated successfully.";
+            } catch (error) {
+                message.textContent = error.message ||
+                    "Something went wrong. Please try again.";
+            }
+        });
+    </script>
+</body>
+</html>
+
